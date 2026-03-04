@@ -31,16 +31,16 @@ The existing Posty CLI will continue to exist as a separate project. Postorama s
 ## Existing Functionality to Preserve Exactly
 
 ### Recipient Discovery (from Photos.app)
-Albums named `"Postorama: <Name>"` are auto-discovered via JXA. Examples:
-- `"Postorama: Hannah Montana"` → id: `hannah_kearney`
-- Sent album auto-named `<album> - Sent`
+Albums inside a Photos.app folder named `"Postorama"` are auto-discovered via JXA. Examples:
+- Folder `"Postorama"` → album `"Hannah Montana"` → id: `hannah_montana`
+- Sent albums live in a separate `"Postorama Sent"` folder, named `"<Name> - Sent"` (e.g. `"Hannah Montana - Sent"`)
 - Recipient ID is a stable slug used as the SQLite primary key
 - Greeting is set per-recipient in the app UI (`recipient_settings.greeting_override`), not encoded in the album name
 
 ### Core Send Workflow
 1. List photos in recipient's Photos.app album via JXA
 2. Get sent photo IDs from SQLite (`send_history` table is authoritative)
-3. Pick oldest unsent photo (by `captureDate`)
+3. Pick newest unsent photo (by `captureDate`, descending)
 4. Pick a message from the message library (rotation: avoid repeating used messages; avoid same `type` consecutively)
 5. Look up mailing address from Contacts.app via Swift CNContactStore
 6. Export photo from Photos.app to a temp directory
@@ -129,7 +129,7 @@ A global scheduler (using `setInterval`) checks every 5 minutes whether any reci
 - **Greeting** (top of message): defaults to `"Dear <firstName>,"` derived from the recipient's full name. Overridable per recipient via `recipient_settings.greeting_override`.
 - **Signature** (bottom of message): defaults to `"Love, <senderFirstName>"` derived from the first name in the return address. Overridable per recipient via `recipient_settings.signature_override`.
 - Both are stored in `recipient_settings` and editable side-by-side in the recipient detail view.
-- Album names do not encode greeting — just use `"Postorama: <Name>"`.
+- Album names do not encode greeting — album names are just the recipient's full name, inside the `"Postorama"` folder.
 
 ### Force Send (Immediate, Override Frequency & Sent History)
 Any recipient can be "force sent" from the UI at any time:

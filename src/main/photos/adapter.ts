@@ -12,6 +12,9 @@ import type { PhotoAsset } from '../../shared/ipc-types';
 
 const execFileAsync = promisify(execFile);
 
+export const POSTORAMA_FOLDER = 'Postorama';
+export const POSTORAMA_SENT_FOLDER = 'Postorama Sent';
+
 function jxaStr(value: string): string {
   return JSON.stringify(value);
 }
@@ -40,15 +43,25 @@ async function runJXA(script: string): Promise<string> {
   }
 }
 
-export async function listAllAlbumNames(): Promise<string[]> {
+/** Lists all album names inside a named Photos.app folder. */
+export async function listAlbumsInFolder(folderName: string): Promise<string[]> {
   const script = `
+    const folderName = ${jxaStr(folderName)};
     const app = Application('Photos');
     app.includeStandardAdditions = true;
     const names = [];
     try {
-      const albums = app.albums();
-      for (let i = 0; i < albums.length; i++) {
-        try { names.push(albums[i].name()); } catch (_) {}
+      const folders = app.folders();
+      for (let i = 0; i < folders.length; i++) {
+        try {
+          if (folders[i].name() === folderName) {
+            const albums = folders[i].albums();
+            for (let j = 0; j < albums.length; j++) {
+              try { names.push(albums[j].name()); } catch (_) {}
+            }
+            break;
+          }
+        } catch (_) {}
       }
     } catch (_) {}
     JSON.stringify(names);
@@ -60,20 +73,30 @@ export async function listAllAlbumNames(): Promise<string[]> {
 export async function listAlbumPhotos(albumName: string): Promise<PhotoAsset[]> {
   const script = `
     const albumName = ${jxaStr(albumName)};
+    const folderName = ${jxaStr(POSTORAMA_FOLDER)};
     const app = Application('Photos');
     app.includeStandardAdditions = true;
 
     function findAlbum(name) {
+      // Search inside the Postorama folder first
+      try {
+        const folders = app.folders();
+        for (let i = 0; i < folders.length; i++) {
+          try {
+            if (folders[i].name() === folderName) {
+              const albums = folders[i].albums();
+              for (let j = 0; j < albums.length; j++) {
+                try { if (albums[j].name() === name) return albums[j]; } catch (_) {}
+              }
+            }
+          } catch (_) {}
+        }
+      } catch (_) {}
+      // Fall back to global album search
       try {
         const albums = app.albums();
         for (let i = 0; i < albums.length; i++) {
           try { if (albums[i].name() === name) return albums[i]; } catch (_) {}
-        }
-      } catch (_) {}
-      try {
-        const smart = app.smartAlbums();
-        for (let i = 0; i < smart.length; i++) {
-          try { if (smart[i].name() === name) return smart[i]; } catch (_) {}
         }
       } catch (_) {}
       return null;
@@ -155,18 +178,39 @@ export async function exportPhoto(photoId: string): Promise<string> {
 
 export async function addToSentAlbum(photoId: string, sentAlbumName: string): Promise<void> {
   const script = `
-    const photoId       = ${jxaStr(photoId)};
-    const sentAlbumName = ${jxaStr(sentAlbumName)};
+    const photoId        = ${jxaStr(photoId)};
+    const sentAlbumName  = ${jxaStr(sentAlbumName)};
+    const sentFolderName = ${jxaStr(POSTORAMA_SENT_FOLDER)};
     const app = Application('Photos');
     app.includeStandardAdditions = true;
 
+    // Find or create the "Postorama Sent" folder
+    let sentFolder = null;
+    try {
+      const folders = app.folders();
+      for (let i = 0; i < folders.length; i++) {
+        try {
+          if (folders[i].name() === sentFolderName) {
+            sentFolder = folders[i];
+            break;
+          }
+        } catch (_) {}
+      }
+    } catch (_) {}
+
+    if (!sentFolder) {
+      sentFolder = app.make({ new: 'folder' });
+      sentFolder.name = sentFolderName;
+    }
+
+    // Find or create the album inside the folder
     let sentAlbum = null;
     try {
-      const albums = app.albums();
-      for (let i = 0; i < albums.length; i++) {
+      const folderAlbums = sentFolder.albums();
+      for (let i = 0; i < folderAlbums.length; i++) {
         try {
-          if (albums[i].name() === sentAlbumName) {
-            sentAlbum = albums[i];
+          if (folderAlbums[i].name() === sentAlbumName) {
+            sentAlbum = folderAlbums[i];
             break;
           }
         } catch (_) {}
@@ -174,7 +218,7 @@ export async function addToSentAlbum(photoId: string, sentAlbumName: string): Pr
     } catch (_) {}
 
     if (!sentAlbum) {
-      sentAlbum = app.make({ new: 'album' });
+      sentAlbum = app.make({ new: 'album', at: sentFolder });
       sentAlbum.name = sentAlbumName;
     }
 

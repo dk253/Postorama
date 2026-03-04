@@ -44,7 +44,7 @@ export default function Dashboard(): React.ReactElement {
       <EmptyState
         icon={<PhotoIcon className="w-10 h-10" />}
         title="No recipients found"
-        description={'Create a Photos album named\n"Postorama: Name"\nto get started.'}
+        description={'Create a "Postorama" folder in Photos,\nthen add an album named after each recipient.'}
         action={
           <button
             onClick={() => refetch()}

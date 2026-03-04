@@ -1,9 +1,10 @@
 /**
- * Discovers postcard recipients by scanning Photos.app albums matching:
- *   "Postorama: <Contact Name>"
+ * Discovers postcard recipients by scanning albums inside the "Postorama"
+ * Photos.app folder. Each album name is the recipient's full name.
+ * Sent albums live in the "Postorama Sent" folder as "<Name> - Sent".
  */
 
-import { listAllAlbumNames } from './adapter';
+import { listAlbumsInFolder, POSTORAMA_FOLDER } from './adapter';
 
 export interface Recipient {
   id: string;
@@ -12,18 +13,7 @@ export interface Recipient {
   sentAlbumName: string;
 }
 
-export const ALBUM_PREFIX = 'Postorama: ';
 export const SENT_SUFFIX = ' - Sent';
-
-const ALBUM_PATTERN = /^Postorama: (.+)$/;
-
-export function parseAlbumName(albumName: string): { fullName: string } | null {
-  const match = ALBUM_PATTERN.exec(albumName);
-  if (!match) return null;
-  return {
-    fullName: match[1]!.trim(),
-  };
-}
 
 export function slugify(name: string): string {
   return name
@@ -33,22 +23,22 @@ export function slugify(name: string): string {
 }
 
 export async function discoverRecipients(): Promise<Recipient[]> {
-  const allNames = await listAllAlbumNames();
+  const albumNames = await listAlbumsInFolder(POSTORAMA_FOLDER);
 
   const seen = new Set<string>();
   const recipients: Recipient[] = [];
 
-  for (const albumName of allNames) {
+  for (const albumName of albumNames) {
+    // Skip any sent albums that ended up in the main folder
     if (albumName.endsWith(SENT_SUFFIX)) continue;
 
-    const parsed = parseAlbumName(albumName);
-    if (!parsed) continue;
+    const fullName = albumName.trim();
+    if (!fullName) continue;
 
-    const { fullName } = parsed;
     const id = slugify(fullName);
 
     if (seen.has(id)) {
-      console.warn(`Warning: duplicate contact "${fullName}" (album "${albumName}") — skipping.`);
+      console.warn(`Warning: duplicate contact "${fullName}" — skipping.`);
       continue;
     }
     seen.add(id);
@@ -57,7 +47,7 @@ export async function discoverRecipients(): Promise<Recipient[]> {
       id,
       fullName,
       albumName,
-      sentAlbumName: `${albumName}${SENT_SUFFIX}`,
+      sentAlbumName: `${fullName}${SENT_SUFFIX}`,
     });
   }
 

@@ -51,7 +51,7 @@ function selectMessage(messages: Message[], recipientId: string): Message {
 
 // ── Photo selection ───────────────────────────────────────────────────────────
 
-function pickOldestUnsent(photos: PhotoAsset[], sentIds: Set<string>): PhotoAsset | null {
+function pickNewestUnsent(photos: PhotoAsset[], sentIds: Set<string>): PhotoAsset | null {
   const unsent = photos.filter((p) => !sentIds.has(p.id));
   if (unsent.length === 0) return null;
 
@@ -59,7 +59,7 @@ function pickOldestUnsent(photos: PhotoAsset[], sentIds: Set<string>): PhotoAsse
     if (!a.captureDate && !b.captureDate) return 0;
     if (!a.captureDate) return 1;
     if (!b.captureDate) return -1;
-    return new Date(a.captureDate).getTime() - new Date(b.captureDate).getTime();
+    return new Date(b.captureDate).getTime() - new Date(a.captureDate).getTime();
   });
 
   return unsent[0] ?? null;
@@ -129,7 +129,7 @@ export async function processRecipient(
     }
   }
   if (!selectedPhoto) {
-    selectedPhoto = pickOldestUnsent(allPhotos, sentIds);
+    selectedPhoto = pickNewestUnsent(allPhotos, sentIds);
   }
   if (!selectedPhoto) {
     notifyOutOfPhotos(recipient);

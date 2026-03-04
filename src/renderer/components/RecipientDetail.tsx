@@ -104,7 +104,7 @@ export default function RecipientDetail({
             {r.fullName}
           </p>
           <p className="text-xs truncate" style={{ color: 'var(--text-secondary)' }}>
-            {r.albumName}
+            Postorama / {r.albumName}
           </p>
         </div>
         <div className="flex items-center gap-2">

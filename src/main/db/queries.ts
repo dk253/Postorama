@@ -139,7 +139,7 @@ export function clearMessageUsageForRecipient(recipientId: string): void {
 
 const DEFAULT_SETTINGS: Omit<RecipientSettings, 'recipient_id'> = {
   frequency_days: 30,
-  active: true,
+  active: false,
   greeting_override: null,
   signature_override: null,
   next_photo_id: null,

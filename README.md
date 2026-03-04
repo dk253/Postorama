@@ -8,10 +8,10 @@ Postorama lives in your menu bar. It watches your Photos.app albums, picks the o
 
 ## How it works
 
-1. You create a Photos.app album named `Postorama: <Name>` for each person you want to send postcards to.
+1. You create a `Postorama` folder in Photos.app and add one album per person, named after them.
 2. You add photos to that album over time.
 3. Postorama checks every 5 minutes. When a recipient is due (based on their send frequency), it picks the oldest unsent photo, selects a message from your library, looks up the address in Contacts.app, and sends a postcard via Lob.
-4. The sent photo is moved to a `Postorama: <Name> - Sent` album in Photos.app so you always know what was sent.
+4. The sent photo is added to a `First Last - Sent` album inside the `Postorama Sent` folder in Photos.app so you always know what was sent.
 5. Delivery tracking, proof images, and full history are stored locally in a SQLite database.
 
 ---
@@ -30,25 +30,26 @@ Postorama lives in your menu bar. It watches your Photos.app albums, picks the o
 
 ## Setup: Photos.app
 
-For each person you want to send postcards to, create an album in Photos.app named exactly:
+Postorama uses two folders in Photos.app to keep things organized:
 
-```
-Postorama: First Last
-```
+**`Postorama`** — your source albums, one per recipient
+**`Postorama Sent`** — automatically created; one album per recipient tracking what's been mailed
 
-For example:
-- `Postorama: Hannah Montana`
-- `Postorama: John Smith`
+### Steps
 
-Add photos to these albums. Postorama sends the oldest photo (by capture date) that hasn't been sent yet. There is no minimum — but the app will warn you when a recipient's album is running low.
+1. In Photos.app, create a folder named exactly **`Postorama`** (File → New Folder).
+2. Inside that folder, create one album per recipient named after the person — just their full name, nothing else:
+   - `Hannah Montana`
+   - `John Smith`
+3. Add photos to each album. Postorama sends the newest unsent photo (by capture date) each time a postcard is due.
 
-Postorama will automatically create a companion album named `Postorama: First Last - Sent` to track what has been mailed.
+Postorama will automatically create the `Postorama Sent` folder and a `First Last - Sent` album inside it the first time a postcard is sent to that person.
 
 ---
 
 ## Setup: Contacts.app
 
-Each recipient must have an entry in Contacts.app with a mailing address. The name in the album (`Postorama: Hannah Montana`) must match the contact name closely enough for macOS's contact search to find it.
+Each recipient must have an entry in Contacts.app with a mailing address. The album name inside the `Postorama` folder (e.g. `Hannah Montana`) must match the contact name closely enough for macOS's contact search to find it.
 
 Make sure the **City**, **State**, and **ZIP** fields are filled in separately in the address card — not typed as a single block in the street field. Postorama handles the single-block case as a fallback, but Contacts.app native fields are more reliable.
 
