@@ -1,0 +1,43 @@
+appId: com.davidkearney.postorama
+productName: Postorama
+copyright: "Copyright © 2026 David Kearney"
+
+directories:
+  output: out
+  buildResources: assets
+
+files:
+  - dist/**/*
+  - assets/**/*
+  - scripts/**/*
+  - node_modules/**/*
+  - "!node_modules/.cache"
+
+asarUnpack:
+  - "node_modules/better-sqlite3/**"
+  - "node_modules/sharp/**"
+  - "scripts/**"
+
+mac:
+  category: public.app-category.utilities
+  target:
+    - target: dmg
+      arch: [x64, arm64]
+  entitlementsInherit: entitlements.mac.inherit.plist
+  entitlements: entitlements.mac.plist
+  icon: assets/icon.png
+
+dmg:
+  contents:
+    - x: 130
+      y: 220
+    - x: 410
+      y: 220
+      type: link
+      path: /Applications
+
+extraResources:
+  - from: scripts/
+    to: scripts/
+    filter:
+      - "**/*.swift"

@@ -1,0 +1,12 @@
+[
+  { "id": "w1", "text": "Thinking of you and sending a little love your way.", "type": "warm" },
+  { "id": "w2", "text": "Life is better with people like you in it. Hope you know that.", "type": "warm" },
+  { "id": "w3", "text": "Just wanted to reach out across the miles and say hello.", "type": "warm" },
+  { "id": "c1", "text": "Just wanted to brighten your day with a hello!", "type": "cheerful" },
+  { "id": "c2", "text": "Wishing you sunshine, good coffee, and easy days.", "type": "cheerful" },
+  { "id": "c3", "text": "Sending good vibes your way — hope they arrive on time!", "type": "cheerful" },
+  { "id": "r1", "text": "Sending this from wherever I am to wherever you are. Some distances don't really matter.", "type": "reflective" },
+  { "id": "r2", "text": "Every time I look at this photo I think of you. Figured I'd make it official.", "type": "reflective" },
+  { "id": "h1", "text": "I sent you a postcard. Now you have to send one back. Those are the rules.", "type": "humorous" },
+  { "id": "h2", "text": "This is proof that I still know your address. Impressed? You should be.", "type": "humorous" }
+]
