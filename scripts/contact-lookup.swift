@@ -1,8 +1,8 @@
 #!/usr/bin/env swift
 // contact-lookup.swift — looks up a contact by name and outputs JSON.
 // Usage:
-//   swift contact-lookup.swift "Hannah Kearney"           -> full address JSON
-//   swift contact-lookup.swift "Hannah Kearney" validate  -> count/label summary JSON
+//   swift contact-lookup.swift "Hannah Montana"           -> full address JSON
+//   swift contact-lookup.swift "Hannah Montana" validate  -> count/label summary JSON
 //
 // Output shapes:
 //   { "found": false }

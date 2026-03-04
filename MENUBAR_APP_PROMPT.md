@@ -32,7 +32,7 @@ The existing Posty CLI will continue to exist as a separate project. Postorama s
 
 ### Recipient Discovery (from Photos.app)
 Albums named `"Postorama: <Name>"` are auto-discovered via JXA. Examples:
-- `"Postorama: Hannah Kearney"` → id: `hannah_kearney`
+- `"Postorama: Hannah Montana"` → id: `hannah_kearney`
 - Sent album auto-named `<album> - Sent`
 - Recipient ID is a stable slug used as the SQLite primary key
 - Greeting is set per-recipient in the app UI (`recipient_settings.greeting_override`), not encoded in the album name
@@ -197,7 +197,7 @@ Fixed width ~380px, variable height up to ~600px with scrolling. Organized into 
 │  [Dashboard]  [Recipients]  [History]  │
 │                                        │
 │  ┌──────────────────────────────────┐  │
-│  │  Hannah Kearney                  │  │
+│  │  Hannah Montana                  │  │
 │  │  ● 4 photos remaining            │  │
 │  │  Last sent: Feb 28 · Weekly      │  │
 │  │  Next: Mar 7                     │  │
@@ -250,7 +250,7 @@ Opens when clicking a recipient card or from overflow menu. Contains:
 ### History Panel
 A scrollable list of all sends across all recipients, newest first:
 ```
-Mar 4, 2026  •  Hannah Kearney
+Mar 4, 2026  •  Hannah Montana
 [thumbnail]  haiku_200 · "Leaves drift through..."
              Lob #psc_xyz · Expected Mar 9  [View PDF ↗]
 

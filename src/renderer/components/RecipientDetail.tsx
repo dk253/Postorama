@@ -165,7 +165,7 @@ export default function RecipientDetail({
                 type="text"
                 value={signatureOverride}
                 onChange={(e) => setSignatureOverride(e.target.value)}
-                placeholder="Love, Dave"
+                placeholder="Love, Me"
                 className="w-full rounded-md px-3 py-1.5 text-xs"
                 style={{
                   background: 'var(--bg-card)',

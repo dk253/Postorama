@@ -37,7 +37,7 @@ Postorama: First Last
 ```
 
 For example:
-- `Postorama: Hannah Kearney`
+- `Postorama: Hannah Montana`
 - `Postorama: John Smith`
 
 Add photos to these albums. Postorama sends the oldest photo (by capture date) that hasn't been sent yet. There is no minimum — but the app will warn you when a recipient's album is running low.
@@ -48,7 +48,7 @@ Postorama will automatically create a companion album named `Postorama: First La
 
 ## Setup: Contacts.app
 
-Each recipient must have an entry in Contacts.app with a mailing address. The name in the album (`Postorama: Hannah Kearney`) must match the contact name closely enough for macOS's contact search to find it.
+Each recipient must have an entry in Contacts.app with a mailing address. The name in the album (`Postorama: Hannah Montana`) must match the contact name closely enough for macOS's contact search to find it.
 
 Make sure the **City**, **State**, and **ZIP** fields are filled in separately in the address card — not typed as a single block in the street field. Postorama handles the single-block case as a fallback, but Contacts.app native fields are more reliable.
 
@@ -59,7 +59,7 @@ Make sure the **City**, **State**, and **ZIP** fields are filled in separately i
 ### 1. Clone the repository
 
 ```bash
-git clone https://github.com/davidkearney/postorama.git
+git clone https://github.com/dk253/Postorama.git
 cd postorama
 ```
 
