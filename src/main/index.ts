@@ -1,4 +1,4 @@
-import { app, BrowserWindow, nativeImage, Menu } from 'electron';
+import { app, BrowserWindow, nativeImage, Menu, shell } from 'electron';
 
 // Must be set before app is ready so macOS attributes notifications correctly
 app.name = 'Postorama';
@@ -8,6 +8,10 @@ import { menubar } from 'menubar';
 import { registerIpcHandlers } from './ipc/handlers';
 import { startScheduler, stopScheduler } from './scheduler';
 import { getDb, closeDb } from './db/index';
+import { initLogger, getLogFilePath } from './logger';
+
+// Initialise logging before anything else so all errors are captured
+initLogger();
 
 // Prevent multiple instances
 if (!app.requestSingleInstanceLock()) {
@@ -104,6 +108,8 @@ app.whenReady().then(() => {
     // Right-click context menu on tray icon
     const contextMenu = Menu.buildFromTemplate([
       { label: 'Open Postorama', click: () => mb.showWindow() },
+      { type: 'separator' },
+      { label: 'View Log File', click: () => shell.openPath(getLogFilePath()) },
       { type: 'separator' },
       { label: 'Quit Postorama', click: () => app.quit() },
     ]);
