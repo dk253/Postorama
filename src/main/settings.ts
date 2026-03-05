@@ -71,18 +71,19 @@ function decryptKey(encrypted: string): string {
   if (!encrypted) return '';
   try {
     if (!safeStorage.isEncryptionAvailable()) return '';
-    return safeStorage.decryptString(Buffer.from(encrypted, 'base64'));
+    return safeStorage.decryptString(Buffer.from(encrypted, 'base64')).trim();
   } catch {
     return '';
   }
 }
 
 function encryptKey(plaintext: string): string {
-  if (!plaintext) return '';
+  const trimmed = plaintext.trim();
+  if (!trimmed) return '';
   if (!safeStorage.isEncryptionAvailable()) {
     throw new Error('safeStorage encryption is not available on this system.');
   }
-  return safeStorage.encryptString(plaintext).toString('base64');
+  return safeStorage.encryptString(trimmed).toString('base64');
 }
 
 function migrateApiKey(): void {

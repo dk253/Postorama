@@ -109,11 +109,11 @@ export default function SettingsPanel({ onClose }: Props): React.ReactElement {
     setSaving(true);
     try {
       await updateSettings.mutateAsync(localSettings);
-      if (testKey !== rawTestApiKey) {
-        await setTestApiKey.mutateAsync({ key: testKey });
+      if (testKey.trim() !== rawTestApiKey) {
+        await setTestApiKey.mutateAsync({ key: testKey.trim() });
       }
-      if (liveKey !== rawLiveApiKey) {
-        await setLiveApiKey.mutateAsync({ key: liveKey });
+      if (liveKey.trim() !== rawLiveApiKey) {
+        await setLiveApiKey.mutateAsync({ key: liveKey.trim() });
       }
       showToast('success', 'Settings saved');
     } catch (err) {
