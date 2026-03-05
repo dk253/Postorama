@@ -14,12 +14,13 @@ files:
 asarUnpack:
   - "node_modules/better-sqlite3/**"
   - "node_modules/sharp/**"
+  - "node_modules/@img/**"
 
 mac:
   category: public.app-category.utilities
   target:
     - target: dmg
-      arch: [x64, arm64]
+      arch: [arm64]
   entitlementsInherit: entitlements.mac.inherit.plist
   entitlements: entitlements.mac.plist
   icon: assets/icon.png
