@@ -23,6 +23,9 @@ mac:
   entitlementsInherit: entitlements.mac.inherit.plist
   entitlements: entitlements.mac.plist
   icon: assets/icon.png
+  extendInfo:
+    NSContactsUsageDescription: "Postorama looks up mailing addresses from your Contacts to address postcards."
+    NSAppleEventsUsageDescription: "Postorama reads your Photos library to select images for postcards."
 
 dmg:
   contents:
@@ -40,7 +43,5 @@ extraResources:
       - "*.png"
   - from: resources/
     to: resources/
-  - from: scripts/
-    to: scripts/
-    filter:
-      - "**/*.swift"
+  - from: scripts/contact-lookup
+    to: scripts/contact-lookup

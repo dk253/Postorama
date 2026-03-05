@@ -8,3 +8,4 @@ out/
 *.js.map
 .idea/
 .claude/
+scripts/contact-lookup

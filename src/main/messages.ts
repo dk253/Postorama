@@ -8,10 +8,11 @@ function getMessagesPath(): string {
 }
 
 function getDefaultMessagesPath(): string {
+  // extraResources copies resources/ → Contents/Resources/resources/ in packaged builds
   if (app.isPackaged) {
     return path.join(process.resourcesPath, 'resources', 'messages.default.json');
   }
-  return path.join(__dirname, '..', '..', 'resources', 'messages.default.json');
+  return path.join(app.getAppPath(), 'resources', 'messages.default.json');
 }
 
 export function loadMessages(): Message[] {

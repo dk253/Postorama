@@ -11,11 +11,13 @@ import type { Address } from '../../shared/ipc-types';
 
 const execFileAsync = promisify(execFile);
 
-function getSwiftScriptPath(): string {
+function getContactLookupBinaryPath(): string {
+  // Packaged: binary lives in Contents/Resources/scripts/contact-lookup (via extraResources)
+  // Dev: compiled to scripts/contact-lookup by `yarn build:swift`
   if (app.isPackaged) {
-    return path.join(process.resourcesPath, 'scripts', 'contact-lookup.swift');
+    return path.join(process.resourcesPath, 'scripts', 'contact-lookup');
   }
-  return path.join(__dirname, '..', '..', '..', 'scripts', 'contact-lookup.swift');
+  return path.join(__dirname, '..', '..', '..', 'scripts', 'contact-lookup');
 }
 
 const COUNTRY_MAP: Record<string, string> = {
@@ -53,9 +55,9 @@ function normaliseCountry(raw: string): string {
 }
 
 async function runSwift(args: string[]): Promise<string> {
-  const scriptPath = getSwiftScriptPath();
+  const binaryPath = getContactLookupBinaryPath();
   try {
-    const { stdout } = await execFileAsync('swift', [scriptPath, ...args], {
+    const { stdout } = await execFileAsync(binaryPath, args, {
       timeout: 30_000,
     });
     return stdout.trim();
