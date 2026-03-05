@@ -30,9 +30,10 @@ function getIconPath(name: string): string {
 }
 
 function getRendererPath(): string {
-  const filePath = app.isPackaged
-    ? path.join(process.resourcesPath, 'dist', 'renderer', 'index.html')
-    : path.join(__dirname, '..', '..', 'dist', 'renderer', 'index.html');
+  // app.getAppPath() returns the path to the asar (or app dir in dev), which
+  // contains dist/. process.resourcesPath is the parent of the asar and does NOT
+  // contain dist/ — using it here would produce a path that doesn't exist.
+  const filePath = path.join(app.getAppPath(), 'dist', 'renderer', 'index.html');
   return pathToFileURL(filePath).href;
 }
 

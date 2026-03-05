@@ -8,15 +8,12 @@ directories:
 
 files:
   - dist/**/*
-  - assets/**/*
-  - scripts/**/*
   - node_modules/**/*
   - "!node_modules/.cache"
 
 asarUnpack:
   - "node_modules/better-sqlite3/**"
   - "node_modules/sharp/**"
-  - "scripts/**"
 
 mac:
   category: public.app-category.utilities
@@ -37,6 +34,12 @@ dmg:
       path: /Applications
 
 extraResources:
+  - from: assets/
+    to: assets/
+    filter:
+      - "*.png"
+  - from: resources/
+    to: resources/
   - from: scripts/
     to: scripts/
     filter:
