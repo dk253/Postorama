@@ -226,6 +226,7 @@ export async function processRecipient(
       signature: effectiveSignature,
       size,
       useSandbox: settings.useSandbox,
+      photoMeta: imageData.photoMeta,
     });
   } catch (err) {
     const msg = `Lob API failed: ${String(err)}`;

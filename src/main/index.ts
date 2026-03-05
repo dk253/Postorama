@@ -1,4 +1,4 @@
-import { app, BrowserWindow, nativeImage, Menu, shell } from 'electron';
+import { app, BrowserWindow, nativeImage, Menu, shell, dialog } from 'electron';
 
 // Must be set before app is ready so macOS attributes notifications correctly
 app.name = 'Postorama';
@@ -109,6 +109,18 @@ app.whenReady().then(() => {
     const contextMenu = Menu.buildFromTemplate([
       { label: 'Open Postorama', click: () => mb.showWindow() },
       { type: 'separator' },
+      {
+        label: 'About Postorama',
+        click: () => {
+          dialog.showMessageBox({
+            type: 'info',
+            title: 'About Postorama',
+            message: 'Postorama',
+            detail: `Version ${app.getVersion()}\n\nSends real postcards from your photo library via Lob.\n\nCopyright © 2026 Dave Kearney`,
+            buttons: ['OK'],
+          });
+        },
+      },
       { label: 'View Log File', click: () => shell.openPath(getLogFilePath()) },
       { type: 'separator' },
       { label: 'Quit Postorama', click: () => app.quit() },

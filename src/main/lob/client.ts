@@ -16,6 +16,120 @@ export interface LobPostcardResult {
   thumbnails?: Array<{ small: string; medium: string; large: string }>;
 }
 
+export interface PhotoMeta {
+  dateTaken?: string;
+  location?: string;
+}
+
+function parseExifGps(exif: Buffer): { lat: number; lon: number } | undefined {
+  // EXIF data begins with "Exif\0\0" followed by a TIFF block.
+  if (exif.length < 8 || exif.slice(0, 6).toString('ascii') !== 'Exif\0\0') return undefined;
+  const t = exif.slice(6); // TIFF block
+  const le = t.slice(0, 2).toString('ascii') === 'II';
+  const r16 = (o: number) => (le ? t.readUInt16LE(o) : t.readUInt16BE(o));
+  const r32 = (o: number) => (le ? t.readUInt32LE(o) : t.readUInt32BE(o));
+  if (r16(2) !== 42) return undefined; // TIFF magic
+
+  // Scan IFD0 for the GPS sub-IFD pointer (tag 0x8825).
+  const ifd0 = r32(4);
+  const ifd0Count = r16(ifd0);
+  let gpsIfd: number | undefined;
+  for (let i = 0; i < ifd0Count; i++) {
+    const e = ifd0 + 2 + i * 12;
+    if (r16(e) === 0x8825) { gpsIfd = r32(e + 8); break; }
+  }
+  if (gpsIfd === undefined) return undefined;
+
+  // Read GPS IFD entries.
+  const gpsCount = r16(gpsIfd);
+  let latRef = 'N', lonRef = 'E';
+  let lat: number | undefined, lon: number | undefined;
+
+  const readRational3 = (dataOffset: number): number => {
+    const deg = r32(dataOffset) / r32(dataOffset + 4);
+    const min = r32(dataOffset + 8) / r32(dataOffset + 12);
+    const sec = r32(dataOffset + 16) / r32(dataOffset + 20);
+    return deg + min / 60 + sec / 3600;
+  };
+
+  for (let i = 0; i < gpsCount; i++) {
+    const e = gpsIfd + 2 + i * 12;
+    const tag = r16(e);
+    if (tag === 0x0001) latRef = t.slice(e + 8, e + 9).toString('ascii');
+    else if (tag === 0x0002) lat = readRational3(r32(e + 8));
+    else if (tag === 0x0003) lonRef = t.slice(e + 8, e + 9).toString('ascii');
+    else if (tag === 0x0004) lon = readRational3(r32(e + 8));
+  }
+
+  if (lat === undefined || lon === undefined) return undefined;
+  return { lat: latRef === 'S' ? -lat : lat, lon: lonRef === 'W' ? -lon : lon };
+}
+
+async function reverseGeocode(lat: number, lon: number): Promise<string | undefined> {
+  try {
+    const url = `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`;
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 5000);
+    const res = await fetch(url, {
+      headers: { 'User-Agent': 'Postorama/1.0' },
+      signal: controller.signal,
+    }).finally(() => clearTimeout(timer));
+    if (!res.ok) return undefined;
+    const data = (await res.json()) as { address?: Record<string, string> };
+    const addr = data.address;
+    if (!addr) return undefined;
+    const city = addr.city ?? addr.town ?? addr.village ?? addr.hamlet ?? addr.suburb;
+    if (city && addr.country_code?.toUpperCase() === 'US') return `${city}, ${addr.state}`;
+    if (city && addr.country) return `${city}, ${addr.country}`;
+    if (addr.state && addr.country) return `${addr.state}, ${addr.country}`;
+    return undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+async function extractPhotoMeta(filePath: string, sharp: typeof import('sharp')): Promise<PhotoMeta> {
+  const result: PhotoMeta = {};
+
+  // Extract capture date from raw EXIF buffer.
+  // DateTimeOriginal is stored as ASCII "YYYY:MM:DD HH:MM:SS" — searchable without a parser.
+  try {
+    const { exif } = await sharp(filePath).metadata();
+    if (exif) {
+      const str = exif.toString('latin1');
+      const m = str.match(/(\d{4}):(\d{2}):(\d{2}) (\d{2}):(\d{2}):\d{2}/);
+      if (m) {
+        const MONTHS = [
+          'January', 'February', 'March', 'April', 'May', 'June',
+          'July', 'August', 'September', 'October', 'November', 'December',
+        ];
+        const monthName = MONTHS[parseInt(m[2]) - 1] ?? m[2];
+        const h = parseInt(m[4]);
+        const period = h >= 12 ? 'PM' : 'AM';
+        const h12 = h % 12 === 0 ? 12 : h % 12;
+        result.dateTaken = `${monthName} ${parseInt(m[3])}, ${m[1]} · ${h12}:${m[5]} ${period}`;
+      }
+    }
+  } catch {
+    // non-fatal
+  }
+
+  // Extract GPS from EXIF and reverse-geocode to a human-friendly place name.
+  try {
+    const { exif } = await sharp(filePath).metadata();
+    if (exif) {
+      const gps = parseExifGps(exif);
+      if (gps) {
+        result.location = await reverseGeocode(gps.lat, gps.lon);
+      }
+    }
+  } catch {
+    // non-fatal
+  }
+
+  return result;
+}
+
 // ── HTML templates ────────────────────────────────────────────────────────────
 
 function buildFrontHtml(imageBase64: string, size: '4x6' | '6x9'): string {
@@ -36,8 +150,11 @@ function buildFrontHtml(imageBase64: string, size: '4x6' | '6x9'): string {
 </html>`;
 }
 
-function buildBackHtml(size: '4x6' | '6x9'): string {
+function buildBackHtml(size: '4x6' | '6x9', photoMetaText?: string): string {
   const [w, h] = size === '4x6' ? ['6.25in', '4.25in'] : ['9.25in', '6.25in'];
+  const metaHtml = photoMetaText
+    ? `\n    <div class="photo-meta">${photoMetaText}</div>`
+    : '';
   return `<!DOCTYPE html>
 <html>
 <head>
@@ -86,6 +203,13 @@ function buildBackHtml(size: '4x6' | '6x9'): string {
     color: #222;
     margin-top: 0.12in;
   }
+  .photo-meta {
+    font-size: 7pt;
+    font-style: italic;
+    line-height: 1.5;
+    color: #aaa;
+    margin-top: 0.08in;
+  }
   .address-side {
     width: 3in;
     flex-shrink: 0;
@@ -100,7 +224,7 @@ function buildBackHtml(size: '4x6' | '6x9'): string {
   <div class="message-side">
     <div class="salutation">{{greeting}}</div>
     <div class="message-text">{{message}}</div>
-    <div class="signature">{{signature}}</div>
+    <div class="signature">{{signature}}</div>${metaHtml}
   </div>
   <div class="address-side">
     {{addressBlock}}
@@ -165,11 +289,16 @@ export interface CreatePostcardParams {
   signature: string;
   size: '4x6' | '6x9';
   useSandbox: boolean;
+  photoMeta?: PhotoMeta;
 }
 
 export async function createPostcard(params: CreatePostcardParams): Promise<LobPostcardResult> {
   const frontHtml = buildFrontHtml(params.imageBase64, params.size);
-  const backHtml = buildBackHtml(params.size);
+  const metaParts: string[] = [];
+  if (params.photoMeta?.dateTaken) metaParts.push(params.photoMeta.dateTaken);
+  if (params.photoMeta?.location) metaParts.push(params.photoMeta.location);
+  const photoMetaText = metaParts.length > 0 ? 'Photo: ' + metaParts.join('<br>') : undefined;
+  const backHtml = buildBackHtml(params.size, photoMetaText);
 
   const form = new FormData();
   const to = toRecipientLobAddress(params.recipientName, params.recipientAddress);
@@ -225,7 +354,7 @@ export async function testLobConnection(apiKey: string): Promise<void> {
 export async function processImageForPostcard(
   inputPath: string,
   size: '4x6' | '6x9',
-): Promise<{ base64: string; widthPx: number; heightPx: number; sizeBytes: number }> {
+): Promise<{ base64: string; widthPx: number; heightPx: number; sizeBytes: number; photoMeta: PhotoMeta }> {
   const sharp = (await import('sharp')).default;
 
   const [targetW, targetH] = size === '4x6' ? [1875, 1275] : [2775, 1875];
@@ -240,6 +369,9 @@ export async function processImageForPostcard(
     await execFileAsync('sips', ['-s', 'format', 'jpeg', inputPath, '--out', jpgPath]);
     workPath = jpgPath;
   }
+
+  // Extract EXIF metadata before Sharp pipelines strip it from the buffer.
+  const photoMeta = await extractPhotoMeta(workPath, sharp);
 
   // Probe: apply EXIF auto-rotation, then read actual pixel dimensions.
   // Pass 1: apply EXIF auto-rotation and capture corrected pixel dimensions.
@@ -269,6 +401,7 @@ export async function processImageForPostcard(
     widthPx: targetW,
     heightPx: targetH,
     sizeBytes: buffer.byteLength,
+    photoMeta,
   };
 }
 

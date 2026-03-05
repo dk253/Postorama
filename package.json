@@ -1,6 +1,6 @@
 {
   "name": "postorama",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "macOS menubar app for sending postcards via Lob",
   "main": "dist/main/index.js",
   "license": "MIT",
@@ -17,6 +17,7 @@
     "build:renderer": "esbuild src/renderer/index.tsx --bundle --outfile=dist/renderer/bundle.js --loader:.tsx=tsx --loader:.ts=ts --jsx=automatic --platform=browser --target=chrome120 --minify",
     "build:css": "tailwindcss -i src/renderer/styles/globals.css -o dist/renderer/styles.css --minify",
     "rebuild": "electron-rebuild -f -w better-sqlite3,sharp",
+    "prepackage": "npm version patch --no-git-tag-version",
     "package": "yarn build && electron-builder",
     "postinstall": "electron-builder install-app-deps",
     "lint": "eslint \"src/**/*.{ts,tsx}\"",
