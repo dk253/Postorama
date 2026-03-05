@@ -241,13 +241,17 @@ export async function processImageForPostcard(
     workPath = jpgPath;
   }
 
-  const { width: srcW = 0, height: srcH = 0 } = await sharp(workPath).rotate().metadata();
-  const isPortrait = srcH > srcW;
+  // Probe: apply EXIF auto-rotation, then read actual pixel dimensions.
+  // Pass 1: apply EXIF auto-rotation and capture corrected pixel dimensions.
+  // Chaining .rotate() + .rotate(90) in a single Sharp pipeline cancels out, so two passes are required.
+  const { data: normalized, info: normInfo } = await sharp(workPath)
+    .rotate()
+    .toBuffer({ resolveWithObject: true });
+  const isPortrait = normInfo.height > normInfo.width;
 
-  let image = sharp(workPath).rotate();
-  if (isPortrait) image = image.rotate(90);
-
-  const buffer = await image
+  // Pass 2: rotate portrait → landscape if needed, then resize to postcard dimensions
+  const pipeline = sharp(normalized);
+  const buffer = await (isPortrait ? pipeline.rotate(90) : pipeline)
     .resize(targetW, targetH, { fit: 'cover', position: 'centre' })
     .jpeg({ quality: 88 })
     .toBuffer();

@@ -110,20 +110,26 @@ export function registerIpcHandlers(): void {
   });
 
   // ── recipients:sendNow ─────────────────────────────────────────────────────
-  ipcMain.handle('recipients:sendNow', async (_e, { recipientId }: { recipientId: string }) => {
-    let recipients;
-    try {
-      recipients = await discoverRecipients();
-    } catch (err) {
-      return { success: false, error: String(err) };
-    }
+  ipcMain.handle(
+    'recipients:sendNow',
+    async (
+      _e,
+      { recipientId, photoId, message }: { recipientId: string; photoId?: string; message?: string },
+    ) => {
+      let recipients;
+      try {
+        recipients = await discoverRecipients();
+      } catch (err) {
+        return { success: false, error: String(err) };
+      }
 
-    const recipient = recipients.find((r) => r.id === recipientId);
-    if (!recipient) return { success: false, error: `Recipient "${recipientId}" not found` };
+      const recipient = recipients.find((r) => r.id === recipientId);
+      if (!recipient) return { success: false, error: `Recipient "${recipientId}" not found` };
 
-    const recipientSettings = getRecipientSettings(recipientId);
-    return processRecipient(recipient, recipientSettings, false);
-  });
+      const recipientSettings = getRecipientSettings(recipientId);
+      return processRecipient(recipient, recipientSettings, false, photoId, message || undefined);
+    },
+  );
 
   // ── recipients:updateSettings ──────────────────────────────────────────────
   ipcMain.handle('recipients:updateSettings', async (_e, data) => {

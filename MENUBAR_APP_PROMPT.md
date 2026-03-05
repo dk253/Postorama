@@ -44,7 +44,7 @@ Albums inside a Photos.app folder named `"Postorama"` are auto-discovered via JX
 4. Pick a message from the message library (rotation: avoid repeating used messages; avoid same `type` consecutively)
 5. Look up mailing address from Contacts.app via Swift CNContactStore
 6. Export photo from Photos.app to a temp directory
-7. HEIC → JPEG via `sips` if needed, then resize with Sharp (4×6: 1875×1275px; 6×9: 2775×1875px; JPEG q88; portrait auto-rotated 90° CW; center-crop)
+7. HEIC → JPEG via `sips` if needed, then resize with Sharp (4×6: 1875×1275px; 6×9: 2775×1875px; JPEG q88; portrait auto-rotated 90° CW; center-crop). **Two-pass Sharp pipeline required**: pass 1 calls `.rotate().toBuffer({ resolveWithObject: true })` to apply EXIF normalization and obtain true pixel dimensions; pass 2 calls `sharp(normalizedBuffer).rotate(90)` if portrait (height > width), then resizes. Chaining `.rotate()` and `.rotate(90)` in a single Sharp pipeline cancels them out — always use two separate instances.
 8. POST to Lob API as `multipart/form-data` (bypasses Lob's 10K inline HTML limit)
 9. Call `recordSend()` in SQLite **after** Lob success, **before** Photos changes
 10. Add photo to sent album in Photos.app; set caption `"Sent to [Name] on [Date]"`
@@ -114,16 +114,26 @@ The scheduler respects each recipient's individual frequency. A recipient is "du
 Add a `recipient_settings` table:
 ```sql
 recipient_id TEXT PRIMARY KEY,
-frequency_days INTEGER NOT NULL DEFAULT 7,
-active INTEGER NOT NULL DEFAULT 1,        -- 0 = paused
-greeting_override TEXT,                   -- if set, overrides album-parsed greeting
+frequency_days INTEGER NOT NULL DEFAULT 30,
+active INTEGER NOT NULL DEFAULT 1,        -- 0 = inactive (hidden from scheduler)
+scheduled INTEGER NOT NULL DEFAULT 0,     -- 1 = auto-send on schedule; 0 = manual sends only
+greeting_override TEXT,                   -- if set, overrides default "Dear <firstName>,"
+signature_override TEXT,                  -- if set, overrides default "Love, <senderFirstName>"
 next_photo_id TEXT,                       -- if set, send this photo next (cleared after use)
-postcard_size TEXT NOT NULL DEFAULT '4x6', -- '4x6' | '6x9' (overrides global default)
-notes TEXT                                -- optional free-text note
+postcard_size TEXT,                       -- '4x6' | '6x9' (overrides global default)
+notes TEXT,                               -- optional free-text note
+address_label TEXT                        -- preferred Contacts.app address label
 ```
 
+**Important defaults:**
+- New recipients start with `active = 1` (appear on dashboard) but `scheduled = 0` (not auto-sent)
+- The scheduler only processes recipients where `active = 1 AND scheduled = 1`
+- This lets users review and configure a recipient before opting them into automatic sends
+
 ### Global Send Schedule
-A global scheduler (using `setInterval`) checks every 5 minutes whether any recipients are due. Configurable send window (e.g., only send between 8am–10am local time). If a recipient is due and it's within the send window, trigger their send automatically in the background. Show a macOS notification on success or failure.
+A global scheduler (using `setInterval`) checks every 5 minutes whether any recipients are due. Configurable send window (e.g., only send between 8am–10am local time). If a recipient is due AND has `scheduled = 1` AND it's within the send window, trigger their send automatically in the background. Show a macOS notification on success or failure.
+
+Recipients with `scheduled = 0` are never auto-sent — they require manual sends only (either the "Send" header button or "Send Now" per-photo button).
 
 ### Greeting & Signature Per Recipient (Editable in UI)
 - **Greeting** (top of message): defaults to `"Dear <firstName>,"` derived from the recipient's full name. Overridable per recipient via `recipient_settings.greeting_override`.
@@ -137,8 +147,14 @@ Any recipient can be "force sent" from the UI at any time:
 - Optionally ignores sent history (`force` flag) so it picks from all photos, including already-sent ones
 - After a force send, the frequency timer resets from that moment
 
-### Specific Photo Selection
-Within each recipient's detail view, show a photo browser of all photos in their album. Photos that have already been sent are shown with a faint overlay and a "Sent" badge. The user can click any photo to "queue it next" — it becomes the next photo sent to that recipient regardless of date ordering. Store this override in `recipient_settings.next_photo_id`. Clear it after it's used.
+### Specific Photo Selection & Immediate Send
+Within each recipient's detail view, show a photo browser of all photos in their album. Photos that have already been sent are shown with a faint overlay and a "Sent" badge.
+
+Hovering an unsent photo shows two action buttons:
+- **Set Next** — queues this photo as the next to be auto-sent (stores in `recipient_settings.next_photo_id`, cleared after use); clicking again toggles it off
+- **Send Now** — immediately sends this specific photo to the recipient, bypassing scheduling, frequency checks, and the "unsent only" filter; useful for manual one-off sends
+
+The "Send" button in the recipient detail header sends immediately using the normal photo selection logic (next_photo_id → newest unsent).
 
 ### Live Postcard Preview
 Before sending (or after), render a visual preview of what the postcard looks like:
@@ -197,48 +213,55 @@ Fixed width ~380px, variable height up to ~600px with scrolling. Organized into 
 │  [Dashboard]  [Recipients]  [History]  │
 │                                        │
 │  ┌──────────────────────────────────┐  │
-│  │  Hannah Montana                  │  │
-│  │  ● 4 photos remaining            │  │
-│  │  Last sent: Feb 28 · Weekly      │  │
-│  │  Next: Mar 7                     │  │
-│  │             [Send Now ↗] [···]   │  │
+│  │  Montana, Hannah          4/12  │  │
+│  │  Sent 2 days ago · next Mar 7   │  │
+│  │  Scheduled: every 30 days       │  │
+│  │                    [✈] [···] >  │  │
 │  └──────────────────────────────────┘  │
 │                                        │
 │  ┌──────────────────────────────────┐  │
-│  │  Bob Smith                 ⚠ 1  │  │
-│  │  ● Low photos remaining          │  │
-│  │  Last sent: Feb 10 · Monthly     │  │
-│  │  Next: Mar 10                    │  │
-│  │             [Send Now ↗] [···]   │  │
+│  │  Smith, Bob               1/8   │  │
+│  │  Sent 3 weeks ago               │  │
+│  │  Scheduled: No                  │  │
+│  │                    [✈] [···] >  │  │
 │  └──────────────────────────────────┘  │
 │                                        │
 └────────────────────────────────────────┘
 ```
 
 Each recipient card shows:
-- Name + status dot (green = healthy, yellow = low photos ≤3, red = error, gray = paused)
-- Photos remaining count
-- Last sent date (human-friendly: "Feb 28")
-- Frequency label + calculated next send date
-- "Send Now" button → opens confirmation sheet
-- `···` overflow menu → View Photos, View History, Pause, Force Send, Edit
+- Name + status dot (green = healthy, yellow = low photos ≤3, red = error, gray = inactive)
+- Unsent / total photo count (top right)
+- Last sent date (relative: "2 days ago") + next send date if scheduled
+- **Schedule line**: `Scheduled: every N days` when scheduled is on, or `Scheduled: No` when off
+- Send button (✈) → opens compose panel (see below)
+- `···` overflow menu → View Details, Pause/Resume
+- Recipients are sorted alphabetically by **last name, then first name** (last word of full name is treated as surname)
 
 ### Recipient Detail View (full panel slide-in)
 Opens when clicking a recipient card or from overflow menu. Contains:
 
 **Header section:**
-- Large name + editable greeting field (inline edit on click)
-- Active/Paused toggle switch
-- Frequency selector (Weekly / Biweekly / Monthly / Custom)
-- Postcard size selector ([4×6 ●] / [6×9 ○]) — overrides the global default for this recipient
-- "Send Now" button
+- Name + album path (`Postorama / Name`)
+- **Active** checkbox — when unchecked, recipient is inactive (skipped by scheduler, shown grayed out)
+- **Scheduled** checkbox — when checked, recipient is included in automatic 5-minute scheduler ticks; defaults to unchecked so new recipients require review before auto-sending
+- **Send** button — opens the compose panel (see below)
+- **Save Settings** button — muted gray when clean, turns **blue (accent)** when any field has unsaved changes
+
+**Compose panel (send flow):**
+When the user clicks Send (header) or Send Now (per-photo), a panel slides up from the bottom of the detail view with:
+- A textarea labelled "Personal note" — placeholder: "Write a personal message… or leave blank to use a random message from your library."
+- Cancel + Send buttons
+- If a note is entered, it is used verbatim as the postcard message and is NOT recorded in message rotation tracking
+- If left blank, a message is selected from the library using normal rotation logic
 
 **Photo Browser:**
 - Grid of small thumbnails from the Photos album
-- Sent photos have a gray overlay + small "✓" badge
-- Unsent photos shown clearly
-- Selected "next" photo has a blue ring
-- Click any photo → "Send This Next" context action
+- Sent photos have a gray overlay + "Sent" badge
+- Unsent photos shown clearly; selected "next" photo has a blue ring
+- Hover over an unsent photo shows two buttons:
+  - **Set Next** — queues this photo as next auto-send (stored in `next_photo_id`); clicking again dequeues
+  - **Send Now** — opens the compose panel to send this specific photo immediately
 
 **Postcard Preview:**
 - Side-by-side mini preview of front (photo) and back (message + address layout)
@@ -259,7 +282,7 @@ Feb 28, 2026  •  Bob Smith
              Lob #psc_abc · Expected Mar 5  [View PDF ↗]
 ```
 
-Filter by recipient using a dropdown at the top.
+Filter by recipient using a **text search input** at the top (matches against recipient name).
 
 ### Settings Panel (full-width overlay)
 Organized into sections:
@@ -336,10 +359,12 @@ Use `electron-store` for non-sensitive settings (return address, scheduler confi
 ### Scheduler (Main Process)
 Run a `setInterval` every 5 minutes in the main process. On each tick:
 1. Check if current time is within the configured send window
-2. Query all active recipients
+2. Query all recipients where `active = 1 AND scheduled = 1`
 3. For each: check `last_sent_at + frequency_days <= now`
 4. If due: run the full send workflow (same as CLI `processRecipient`)
 5. Emit an IPC event to renderer to refresh the dashboard
+
+Recipients with `scheduled = 0` are never auto-processed by the scheduler. They can still be sent manually via the UI at any time.
 
 ### Recipient Status Model (for UI)
 ```typescript
@@ -375,6 +400,7 @@ interface RecipientStatus {
 5. **Sharp requires native compilation** on the target machine — note this in build docs.
 6. **Lob multipart upload**: send front/back HTML as `File` objects in `FormData` to bypass the 10K inline HTML character limit.
 7. **HEIC → JPEG conversion** must go through `sips` before Sharp processes the file.
+8. **Portrait rotation requires two separate Sharp instances.** Chaining `.rotate()` (EXIF normalization) and `.rotate(90)` (90° rotation) in a single pipeline silently cancels them out. Always: pass 1 → `sharp(path).rotate().toBuffer({ resolveWithObject: true })`, check `info.height > info.width`, then pass 2 → `sharp(buffer).rotate(90).resize(...).toBuffer()`.
 
 ---
 

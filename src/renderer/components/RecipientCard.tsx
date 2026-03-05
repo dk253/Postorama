@@ -101,6 +101,11 @@ export default function RecipientCard({
             )}
           </div>
         )}
+        <p className="text-xs mt-0.5" style={{ color: 'var(--text-tertiary)' }}>
+          {r.settings.scheduled
+            ? `Scheduled: every ${r.settings.frequency_days} day${r.settings.frequency_days === 1 ? '' : 's'}`
+            : 'Scheduled: No'}
+        </p>
       </div>
 
       {/* Actions */}

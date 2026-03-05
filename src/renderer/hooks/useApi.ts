@@ -26,7 +26,7 @@ export function useRecipients() {
 
 export function useSendNow() {
   const qc = useQueryClient();
-  return useMutation<SendResult, Error, { recipientId: string }>({
+  return useMutation<SendResult, Error, { recipientId: string; photoId?: string; message?: string }>({
     mutationFn: (data) => invoke('recipients:sendNow', data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['recipients'] });

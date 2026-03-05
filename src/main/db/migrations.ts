@@ -141,4 +141,17 @@ export function runMigrations(db: Database.Database): void {
       new Date().toISOString(),
     );
   }
+
+  // ── Schema v8: scheduled flag on recipient_settings ───────────────────────
+  if (currentVersion < 8) {
+    try {
+      db.exec('ALTER TABLE recipient_settings ADD COLUMN scheduled INTEGER NOT NULL DEFAULT 0');
+    } catch {
+      /* already exists */
+    }
+    db.prepare('INSERT INTO schema_version (version, applied_at) VALUES (?, ?)').run(
+      8,
+      new Date().toISOString(),
+    );
+  }
 }

@@ -139,7 +139,8 @@ export function clearMessageUsageForRecipient(recipientId: string): void {
 
 const DEFAULT_SETTINGS: Omit<RecipientSettings, 'recipient_id'> = {
   frequency_days: 30,
-  active: false,
+  active: true,
+  scheduled: false,
   greeting_override: null,
   signature_override: null,
   next_photo_id: null,
@@ -152,6 +153,7 @@ interface RecipientSettingsRow {
   recipient_id: string;
   frequency_days: number;
   active: number;
+  scheduled: number;
   greeting_override: string | null;
   signature_override: string | null;
   next_photo_id: string | null;
@@ -171,6 +173,7 @@ export function getRecipientSettings(recipientId: string): RecipientSettings {
   return {
     ...row,
     active: row.active === 1,
+    scheduled: row.scheduled === 1,
   };
 }
 
@@ -184,11 +187,12 @@ export function upsertRecipientSettings(
   db.prepare(
     `
     INSERT INTO recipient_settings
-      (recipient_id, frequency_days, active, greeting_override, signature_override, next_photo_id, postcard_size, notes, address_label, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+      (recipient_id, frequency_days, active, scheduled, greeting_override, signature_override, next_photo_id, postcard_size, notes, address_label, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
     ON CONFLICT (recipient_id) DO UPDATE SET
       frequency_days     = excluded.frequency_days,
       active             = excluded.active,
+      scheduled          = excluded.scheduled,
       greeting_override  = excluded.greeting_override,
       signature_override = excluded.signature_override,
       next_photo_id      = excluded.next_photo_id,
@@ -201,6 +205,7 @@ export function upsertRecipientSettings(
     merged.recipient_id,
     merged.frequency_days,
     merged.active ? 1 : 0,
+    merged.scheduled ? 1 : 0,
     merged.greeting_override ?? null,
     merged.signature_override ?? null,
     merged.next_photo_id ?? null,

@@ -45,7 +45,7 @@ async function tick(): Promise<void> {
 
   const active = recipients.filter((r) => {
     const s = getRecipientSettings(r.id);
-    return s.active;
+    return s.active && s.scheduled;
   });
 
   _activeRecipientCount = active.length;

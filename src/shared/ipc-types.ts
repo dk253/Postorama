@@ -30,6 +30,7 @@ export interface RecipientSettings {
   recipient_id: string;
   frequency_days: number;
   active: boolean;
+  scheduled: boolean;
   greeting_override: string | null;
   signature_override: string | null;
   next_photo_id: string | null;
@@ -106,7 +107,7 @@ export type IpcChannels = {
     request: { contactName: string };
     response: Array<{ label: string; address: Address }>;
   };
-  'recipients:sendNow': { request: { recipientId: string }; response: SendResult };
+  'recipients:sendNow': { request: { recipientId: string; photoId?: string; message?: string }; response: SendResult };
   'recipients:updateSettings': {
     request: Partial<RecipientSettings> & { recipient_id: string };
     response: RecipientSettings;

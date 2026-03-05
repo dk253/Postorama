@@ -26,25 +26,42 @@ export default function RecipientDetail({
   const sendNow = useSendNow();
   const sentPhotoIds = useSentPhotoIds(r.id);
 
+  const [savedSettings, setSavedSettings] = useState(r.settings);
   const [greetingOverride, setGreetingOverride] = useState(r.settings.greeting_override ?? '');
   const [signatureOverride, setSignatureOverride] = useState(r.settings.signature_override ?? '');
   const [frequencyDays, setFrequencyDays] = useState(r.settings.frequency_days);
   const [size, setSize] = useState<'4x6' | '6x9' | ''>(r.settings.postcard_size ?? '');
   const [notes, setNotes] = useState(r.settings.notes ?? '');
   const [active, setActive] = useState(r.settings.active);
+  const [scheduled, setScheduled] = useState(r.settings.scheduled);
   const [addressLabel, setAddressLabel] = useState<string | null>(r.settings.address_label);
   const [sending, setSending] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [pendingPhotoId, setPendingPhotoId] = useState<string | undefined>(undefined);
+  const [composeOpen, setComposeOpen] = useState(false);
+  const [personalNote, setPersonalNote] = useState('');
+
+  const isDirty =
+    greetingOverride !== (savedSettings.greeting_override ?? '') ||
+    signatureOverride !== (savedSettings.signature_override ?? '') ||
+    frequencyDays !== savedSettings.frequency_days ||
+    size !== (savedSettings.postcard_size ?? '') ||
+    notes !== (savedSettings.notes ?? '') ||
+    active !== savedSettings.active ||
+    scheduled !== savedSettings.scheduled ||
+    addressLabel !== savedSettings.address_label;
 
   const { data: contactAddresses, isLoading: addressesLoading } = useContactAddresses(r.fullName);
 
   useEffect(() => {
+    setSavedSettings(r.settings);
     setGreetingOverride(r.settings.greeting_override ?? '');
     setSignatureOverride(r.settings.signature_override ?? '');
     setFrequencyDays(r.settings.frequency_days);
     setSize(r.settings.postcard_size ?? '');
     setNotes(r.settings.notes ?? '');
     setActive(r.settings.active);
+    setScheduled(r.settings.scheduled);
     setAddressLabel(r.settings.address_label);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [r.id]); // intentionally reset only when the selected recipient changes
@@ -52,7 +69,7 @@ export default function RecipientDetail({
   const handleSave = async () => {
     setSaving(true);
     try {
-      await updateSettings.mutateAsync({
+      const updated = await updateSettings.mutateAsync({
         recipient_id: r.id,
         greeting_override: greetingOverride.trim() || null,
         signature_override: signatureOverride.trim() || null,
@@ -60,8 +77,10 @@ export default function RecipientDetail({
         postcard_size: size || null,
         notes: notes.trim() || null,
         active,
+        scheduled,
         address_label: addressLabel,
       });
+      setSavedSettings(updated);
       showToast('success', 'Settings saved');
     } catch (err) {
       showToast('error', String(err));
@@ -70,10 +89,21 @@ export default function RecipientDetail({
     }
   };
 
-  const handleSendNow = async () => {
+  const openCompose = (photoId?: string) => {
+    setPendingPhotoId(photoId);
+    setPersonalNote('');
+    setComposeOpen(true);
+  };
+
+  const handleConfirmSend = async () => {
+    setComposeOpen(false);
     setSending(true);
     try {
-      const result = await sendNow.mutateAsync({ recipientId: r.id });
+      const result = await sendNow.mutateAsync({
+        recipientId: r.id,
+        photoId: pendingPhotoId,
+        message: personalNote.trim() || undefined,
+      });
       if (result.success) {
         showToast('success', `Sent to ${r.fullName}!`);
       } else {
@@ -117,8 +147,17 @@ export default function RecipientDetail({
             />
             <span style={{ color: 'var(--text-secondary)' }}>Active</span>
           </label>
+          <label className="flex items-center gap-1.5 text-xs cursor-pointer">
+            <input
+              type="checkbox"
+              checked={scheduled}
+              onChange={(e) => setScheduled(e.target.checked)}
+              className="rounded"
+            />
+            <span style={{ color: 'var(--text-secondary)' }}>Scheduled</span>
+          </label>
           <button
-            onClick={handleSendNow}
+            onClick={() => openCompose()}
             disabled={sending}
             className="flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-medium disabled:opacity-50"
             style={{ background: 'var(--accent)', color: 'white' }}
@@ -128,6 +167,52 @@ export default function RecipientDetail({
           </button>
         </div>
       </div>
+
+      {/* Compose panel — slides up over the body when sending */}
+      {composeOpen && (
+        <div
+          className="absolute inset-x-0 bottom-0 p-4 space-y-3 shadow-lg"
+          style={{
+            background: 'var(--bg-elevated)',
+            borderTop: '1px solid var(--border)',
+            zIndex: 20,
+          }}
+        >
+          <p className="text-xs font-medium" style={{ color: 'var(--text-primary)' }}>
+            Personal note
+          </p>
+          <textarea
+            value={personalNote}
+            onChange={(e) => setPersonalNote(e.target.value)}
+            rows={4}
+            autoFocus
+            placeholder="Write a personal message… or leave blank to use a random message from your library."
+            className="w-full rounded-md px-3 py-2 text-xs resize-none"
+            style={{
+              background: 'var(--bg-card)',
+              border: '1px solid var(--border)',
+              color: 'var(--text-primary)',
+            }}
+          />
+          <div className="flex gap-2 justify-end">
+            <button
+              onClick={() => setComposeOpen(false)}
+              className="px-3 py-1.5 rounded-md text-xs font-medium"
+              style={{ background: 'var(--bg-card)', color: 'var(--text-secondary)', border: '1px solid var(--border)' }}
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleConfirmSend}
+              className="flex items-center gap-1 px-3 py-1.5 rounded-md text-xs font-medium"
+              style={{ background: 'var(--accent)', color: 'white' }}
+            >
+              <PaperAirplaneIcon className="w-3 h-3" />
+              Send
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Body */}
       <div className="flex-1 overflow-y-auto">
@@ -303,11 +388,11 @@ export default function RecipientDetail({
             onClick={handleSave}
             disabled={saving}
             className="w-full py-2 rounded-md text-xs font-medium disabled:opacity-50"
-            style={{
-              background: 'var(--bg-card)',
-              color: 'var(--text-secondary)',
-              border: '1px solid var(--border)',
-            }}
+            style={
+              isDirty
+                ? { background: 'var(--accent)', color: 'white' }
+                : { background: 'var(--bg-card)', color: 'var(--text-secondary)', border: '1px solid var(--border)' }
+            }
           >
             {saving ? 'Saving…' : 'Save Settings'}
           </button>
@@ -322,6 +407,7 @@ export default function RecipientDetail({
               recipientId={r.id}
               sentPhotoIds={sentPhotoIds}
               nextPhotoId={r.settings.next_photo_id}
+              onSendNow={openCompose}
             />
           </div>
         </div>

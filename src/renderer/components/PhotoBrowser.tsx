@@ -8,6 +8,7 @@ interface ThumbnailTileProps {
   isSent: boolean;
   isNextPhoto: boolean;
   onSetNext: (id: string) => void;
+  onSendNow?: (id: string) => void;
 }
 
 function ThumbnailTile({
@@ -15,14 +16,14 @@ function ThumbnailTile({
   isSent,
   isNextPhoto,
   onSetNext,
+  onSendNow,
 }: ThumbnailTileProps): React.ReactElement {
   const { data: base64, isLoading } = useThumbnail(photo.id);
 
   return (
     <div
-      className="relative rounded overflow-hidden cursor-pointer group"
+      className="relative rounded overflow-hidden group"
       style={{ aspectRatio: '4/3', background: 'var(--bg-card)' }}
-      onClick={() => onSetNext(photo.id)}
       title={photo.filename}
     >
       {isLoading && (
@@ -39,7 +40,7 @@ function ThumbnailTile({
         />
       )}
       {isSent && (
-        <div className="absolute inset-0 flex items-center justify-center">
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
           <span
             className="text-xs font-medium px-1.5 py-0.5 rounded"
             style={{ background: 'rgba(0,0,0,0.6)', color: 'var(--text-secondary)' }}
@@ -49,7 +50,7 @@ function ThumbnailTile({
         </div>
       )}
       {isNextPhoto && (
-        <div className="absolute inset-0 border-2 rounded" style={{ borderColor: 'var(--accent)' }}>
+        <div className="absolute inset-0 border-2 rounded pointer-events-none" style={{ borderColor: 'var(--accent)' }}>
           <span
             className="absolute top-1 left-1 text-xs font-medium px-1 py-0.5 rounded"
             style={{ background: 'var(--accent)', color: 'white' }}
@@ -58,16 +59,27 @@ function ThumbnailTile({
           </span>
         </div>
       )}
-      {!isNextPhoto && !isSent && (
-        <div className="absolute inset-0 opacity-0 group-hover:opacity-100 flex items-end justify-center pb-1 transition-opacity">
-          <span
-            className="text-xs px-1.5 py-0.5 rounded"
+      {/* Hover action buttons */}
+      <div className="absolute inset-0 opacity-0 group-hover:opacity-100 flex items-end justify-center gap-1 pb-1 transition-opacity">
+        {!isSent && (
+          <button
+            onClick={(e) => { e.stopPropagation(); onSetNext(photo.id); }}
+            className="text-xs px-1.5 py-0.5 rounded cursor-pointer"
             style={{ background: 'rgba(0,0,0,0.7)', color: 'white' }}
           >
-            Send Next
-          </span>
-        </div>
-      )}
+            {isNextPhoto ? 'Unqueue' : 'Set Next'}
+          </button>
+        )}
+        {onSendNow && (
+          <button
+            onClick={(e) => { e.stopPropagation(); onSendNow(photo.id); }}
+            className="text-xs px-1.5 py-0.5 rounded cursor-pointer"
+            style={{ background: 'var(--accent)', color: 'white' }}
+          >
+            Send Now
+          </button>
+        )}
+      </div>
     </div>
   );
 }
@@ -77,6 +89,7 @@ interface PhotoBrowserProps {
   recipientId: string;
   sentPhotoIds: Set<string>;
   nextPhotoId: string | null;
+  onSendNow?: (photoId: string) => void;
 }
 
 export default function PhotoBrowser({
@@ -84,6 +97,7 @@ export default function PhotoBrowser({
   recipientId,
   sentPhotoIds,
   nextPhotoId,
+  onSendNow,
 }: PhotoBrowserProps): React.ReactElement {
   const { data: photos, isLoading } = usePhotos(albumName);
   const updateSettings = useUpdateRecipientSettings();
@@ -118,6 +132,7 @@ export default function PhotoBrowser({
           isSent={sentPhotoIds.has(photo.id)}
           isNextPhoto={nextPhotoId === photo.id}
           onSetNext={handleSetNext}
+          onSendNow={onSendNow}
         />
       ))}
     </div>

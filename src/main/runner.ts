@@ -87,6 +87,8 @@ export async function processRecipient(
   recipient: Recipient,
   recipientSettings: RecipientSettings,
   force = false,
+  overridePhotoId?: string,
+  overrideMessage?: string,
 ): Promise<SendResult> {
   const settings = getSettings();
   const messages = loadMessages();
@@ -110,19 +112,26 @@ export async function processRecipient(
   const sentIds = force ? new Set<string>() : getSentPhotoIds(recipient.id);
   const unsentCount = allPhotos.filter((p) => !sentIds.has(p.id)).length;
 
-  // 3. Low / empty warnings
-  if (unsentCount === 0) {
-    notifyOutOfPhotos(recipient);
-    return { success: false, error: 'No unsent photos remaining' };
+  // 3. Low / empty warnings (skip for manual sends where user picked a specific photo)
+  if (!overridePhotoId) {
+    if (unsentCount === 0) {
+      notifyOutOfPhotos(recipient);
+      return { success: false, error: 'No unsent photos remaining' };
+    }
+
+    if (unsentCount <= settings.lowPhotoThreshold) {
+      notifyLowPhotos(recipient, unsentCount);
+    }
   }
 
-  if (unsentCount <= settings.lowPhotoThreshold) {
-    notifyLowPhotos(recipient, unsentCount);
-  }
-
-  // 4. Pick photo: honour next_photo_id if set, else oldest unsent
+  // 4. Pick photo: overridePhotoId > next_photo_id > newest unsent
   let selectedPhoto: PhotoAsset | null = null;
-  if (recipientSettings.next_photo_id) {
+  if (overridePhotoId) {
+    selectedPhoto = allPhotos.find((p) => p.id === overridePhotoId) ?? null;
+    if (!selectedPhoto) {
+      return { success: false, error: 'Selected photo not found in album' };
+    }
+  } else if (recipientSettings.next_photo_id) {
     selectedPhoto = allPhotos.find((p) => p.id === recipientSettings.next_photo_id) ?? null;
     if (selectedPhoto) {
       clearNextPhotoId(recipient.id);
@@ -136,9 +145,23 @@ export async function processRecipient(
     return { success: false, error: 'No unsent photos remaining' };
   }
 
-  // 5. Pick message
-  const selectedMessage = selectMessage(messages, recipient.id);
-  const messageKey = selectedMessage.id ?? hashMessage(selectedMessage.text);
+  // 5. Pick message (or use personal note override)
+  let messageKey: string;
+  let messageText: string;
+  let selectedMessageType: string | undefined;
+  if (overrideMessage) {
+    messageText = overrideMessage;
+    messageKey = hashMessage(overrideMessage);
+    selectedMessageType = undefined;
+  } else {
+    const selectedMessage = selectMessage(messages, recipient.id);
+    messageKey = selectedMessage.id ?? hashMessage(selectedMessage.text);
+    messageText =
+      selectedMessage.type === 'quote'
+        ? `Today's Quote: ${selectedMessage.text}`
+        : selectedMessage.text;
+    selectedMessageType = selectedMessage.type;
+  }
 
   // 6. Effective greeting: "Dear <firstName>," by default, overridable per recipient
   const firstName = recipient.fullName.split(' ')[0] ?? recipient.fullName;
@@ -198,7 +221,7 @@ export async function processRecipient(
       recipientAddress: mailingAddress,
       returnAddress,
       imageBase64: imageData.base64,
-      message: selectedMessage.text,
+      message: messageText,
       greeting: effectiveGreeting,
       signature: effectiveSignature,
       size,
@@ -240,7 +263,10 @@ export async function processRecipient(
     expected_delivery_date: lobResult.expected_delivery_date ?? null,
   });
 
-  recordMessageUsage(recipient.id, messageKey, selectedMessage.type);
+  // Only track library message usage — personal notes don't participate in rotation
+  if (!overrideMessage) {
+    recordMessageUsage(recipient.id, messageKey, selectedMessageType);
+  }
 
   // 13. Mark in Photos.app
   try {
